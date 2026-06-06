@@ -1,4 +1,3 @@
-// components/chat/MessageInput.tsx — Input bar with emoji picker + typing
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -6,7 +5,7 @@ import { sendMessage } from "@/lib/actions/chat";
 import { createClient } from "@/lib/supabase/client";
 import { useChatStore } from "@/lib/store";
 import EmojiPicker, { Theme } from "emoji-picker-react";
-import { SmilePlus, Send, Loader2 } from "lucide-react";
+import { SmilePlus, Send, Paperclip, Mic, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 import type { Profile } from "@/types";
@@ -26,74 +25,71 @@ export default function MessageInput({ conversationId, currentUser, otherUserId 
   const supabase = createClient();
   const { setTyping, clearTyping } = useChatStore();
 
-  // Auto-resize textarea
+  // Auto-resize
   useEffect(() => {
     const el = inputRef.current;
     if (el) {
       el.style.height = "auto";
-      el.style.height = Math.min(el.scrollHeight, 120) + "px";
+      el.style.height = Math.min(el.scrollHeight, 140) + "px";
     }
   }, [text]);
 
-  // Broadcast typing indicator via Supabase Realtime
+  // Close emoji on outside click
+  useEffect(() => {
+    if (!showEmoji) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".emoji-container") && !target.closest(".emoji-btn")) {
+        setShowEmoji(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showEmoji]);
+
   const broadcastTyping = useCallback(() => {
     if (!currentUser) return;
-
     supabase.channel(`typing:${conversationId}`).send({
       type: "broadcast",
       event: "typing",
-      payload: {
-        user_id: currentUser.id,
-        username: currentUser.username,
-        conversation_id: conversationId,
-      },
+      payload: { user_id: currentUser.id, username: currentUser.username, conversation_id: conversationId },
     });
-
     clearTimeout(typingTimeout.current);
     typingTimeout.current = setTimeout(() => {
       supabase.channel(`typing:${conversationId}`).send({
         type: "broadcast",
         event: "stop_typing",
-        payload: {
-          user_id: currentUser.id,
-          conversation_id: conversationId,
-        },
+        payload: { user_id: currentUser.id, conversation_id: conversationId },
       });
     }, 2000);
   }, [conversationId, currentUser]);
 
-  // Subscribe to other user's typing
+  // Subscribe to typing
   useEffect(() => {
     const channel = supabase
       .channel(`typing:${conversationId}`)
       .on("broadcast", { event: "typing" }, ({ payload }) => {
-        if (payload.user_id !== currentUser?.id) {
-          setTyping(payload);
-        }
+        if (payload.user_id !== currentUser?.id) setTyping(payload);
       })
       .on("broadcast", { event: "stop_typing" }, ({ payload }) => {
         clearTyping(payload.conversation_id, payload.user_id);
       })
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [conversationId, currentUser?.id]);
 
   async function handleSend() {
     const trimmed = text.trim();
     if (!trimmed || sending) return;
-
     setSending(true);
     setShowEmoji(false);
     setText("");
     clearTimeout(typingTimeout.current);
-
     const result = await sendMessage(conversationId, trimmed);
     if (result.error) {
       toast.error(result.error);
-      setText(trimmed); // restore text on error
+      setText(trimmed);
     }
-
     setSending(false);
     inputRef.current?.focus();
   }
@@ -110,86 +106,106 @@ export default function MessageInput({ conversationId, currentUser, otherUserId 
     if (el) {
       const start = el.selectionStart ?? text.length;
       const end = el.selectionEnd ?? text.length;
-      setText(text.slice(0, start) + emojiData.emoji + text.slice(end));
-      // Restore focus and cursor position
+      const newText = text.slice(0, start) + emojiData.emoji + text.slice(end);
+      setText(newText);
       requestAnimationFrame(() => {
         el.focus();
-        el.setSelectionRange(start + emojiData.emoji.length, start + emojiData.emoji.length);
+        const pos = start + emojiData.emoji.length;
+        el.setSelectionRange(pos, pos);
       });
     } else {
       setText(text + emojiData.emoji);
     }
   }
 
+  const hasText = text.trim().length > 0;
+
   return (
-    <div className="flex-shrink-0 px-4 py-3 bg-zinc-900 border-t border-zinc-800">
+    <div className="px-3 pb-4 pt-2">
       {/* Emoji picker */}
       {showEmoji && (
-        <div className="absolute bottom-20 right-4 z-50 shadow-2xl">
+        <div className="emoji-container absolute bottom-24 left-3 z-50 shadow-2xl rounded-2xl overflow-hidden">
           <EmojiPicker
             theme={Theme.DARK}
             onEmojiClick={onEmojiClick}
-            width={320}
-            height={380}
+            width={300}
+            height={360}
             previewConfig={{ showPreview: false }}
           />
         </div>
       )}
 
-      <div className="flex items-end gap-2">
-        {/* Emoji button */}
-        <button
-          type="button"
-          onClick={() => setShowEmoji((v) => !v)}
-          className={cn(
-            "p-2 rounded-xl transition-colors flex-shrink-0 mb-0.5",
-            showEmoji
-              ? "text-yellow-400 bg-zinc-800"
-              : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800"
-          )}
-        >
-          <SmilePlus className="w-5 h-5" />
-        </button>
-
-        {/* Text input */}
-        <div className="flex-1 relative">
-          <textarea
-            ref={inputRef}
-            value={text}
-            onChange={(e) => {
-              setText(e.target.value);
-              broadcastTyping();
-            }}
-            onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
-            rows={1}
-            className="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-colors resize-none leading-relaxed"
-            style={{ minHeight: "42px", maxHeight: "120px" }}
-          />
+      {/* Input container */}
+      <div className={cn(
+        "flex items-end gap-2 glass rounded-2xl px-3 py-2 transition-all duration-200 input-glow",
+        "border border-white/[0.06] hover:border-white/10"
+      )}>
+        {/* Left actions */}
+        <div className="flex items-center gap-1 pb-1">
+          <button
+            type="button"
+            onClick={() => setShowEmoji(v => !v)}
+            className={cn(
+              "emoji-btn p-1.5 rounded-xl transition-all",
+              showEmoji
+                ? "text-yellow-400 bg-yellow-400/10"
+                : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
+            )}
+          >
+            {showEmoji ? <X className="w-4 h-4" /> : <SmilePlus className="w-4 h-4" />}
+          </button>
+          <button
+            type="button"
+            className="p-1.5 rounded-xl text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-all"
+          >
+            <Paperclip className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Send button */}
-        <button
-          type="button"
-          onClick={handleSend}
-          disabled={!text.trim() || sending}
-          className={cn(
-            "p-2.5 rounded-xl transition-all flex-shrink-0 mb-0.5",
-            text.trim() && !sending
-              ? "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20"
-              : "bg-zinc-800 text-zinc-600 cursor-not-allowed"
+        {/* Textarea */}
+        <textarea
+          ref={inputRef}
+          value={text}
+          onChange={(e) => { setText(e.target.value); broadcastTyping(); }}
+          onKeyDown={handleKeyDown}
+          placeholder="Message..."
+          rows={1}
+          className="flex-1 bg-transparent text-[14.5px] text-white placeholder:text-zinc-600 resize-none outline-none leading-relaxed py-1.5"
+          style={{ minHeight: "36px", maxHeight: "140px" }}
+        />
+
+        {/* Right actions */}
+        <div className="flex items-center gap-1 pb-1">
+          {!hasText && (
+            <button
+              type="button"
+              className="p-1.5 rounded-xl text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-all"
+            >
+              <Mic className="w-4 h-4" />
+            </button>
           )}
-        >
-          {sending ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Send className="w-4 h-4" />
-          )}
-        </button>
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={!hasText || sending}
+            className={cn(
+              "p-2 rounded-xl transition-all duration-200",
+              hasText && !sending
+                ? "bg-blue-500 hover:bg-blue-400 text-white shadow-lg shadow-blue-500/30 scale-100 hover:scale-105 active:scale-95"
+                : "text-zinc-600 cursor-not-allowed"
+            )}
+          >
+            {sending ? (
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" style={{ marginLeft: '1px' }} />
+            )}
+          </button>
+        </div>
       </div>
 
-      <p className="text-[10px] text-zinc-600 mt-1.5 text-center">
-        Press <kbd className="px-1 py-0.5 rounded bg-zinc-800 font-mono text-zinc-500">Enter</kbd> to send · <kbd className="px-1 py-0.5 rounded bg-zinc-800 font-mono text-zinc-500">Shift+Enter</kbd> for new line
+      <p className="text-center text-[10px] text-zinc-700 mt-1.5">
+        Enter to send · Shift+Enter for new line
       </p>
     </div>
   );
