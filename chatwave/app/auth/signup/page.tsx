@@ -11,9 +11,9 @@ export default function SignupPage() {
       <div className="w-full max-w-md relative z-10">
         <div className="text-center mb-8">
           <img
-            src="https://xmfllrzxkcqexehrveur.supabase.co/storage/v1/object/public/avatars/IMG_7205.png"
+            src="https://xmfllrzxkcqexehrveur.supabase.co/storage/v1/object/public/avatars/IMG_7212.png"
             alt="GroveChat"
-            className="w-16 h-16 rounded-2xl object-cover mx-auto mb-4 shadow-lg"
+            className="w-20 h-20 object-contain mx-auto mb-4"
           />
           <h1 className="text-3xl font-bold text-white tracking-tight">GroveChat</h1>
           <p className="text-zinc-400 mt-1 text-sm">Join thousands chatting in real-time</p>
