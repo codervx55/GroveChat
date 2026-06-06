@@ -1,20 +1,15 @@
-// lib/actions/chat.ts — Server Actions for conversations & messages
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
-/** Send a message in a conversation */
 export async function sendMessage(conversationId: string, content: string) {
   const supabase = await createClient();
-
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated." };
 
   const trimmed = content.trim();
-  if (!trimmed || trimmed.length > 2000) {
-    return { error: "Message must be 1–2000 characters." };
-  }
+  if (!trimmed || trimmed.length > 2000) return { error: "Invalid message." };
 
   const { error } = await supabase.from("messages").insert({
     conversation_id: conversationId,
@@ -24,7 +19,6 @@ export async function sendMessage(conversationId: string, content: string) {
 
   if (error) return { error: error.message };
 
-  // Update conversation updated_at so it bubbles to top of list
   await supabase
     .from("conversations")
     .update({ updated_at: new Date().toISOString() })
@@ -34,52 +28,61 @@ export async function sendMessage(conversationId: string, content: string) {
   return { success: true };
 }
 
-/** Find or create a 1-on-1 conversation between two users */
 export async function getOrCreateConversation(otherUserId: string) {
   const supabase = await createClient();
-
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated." };
   if (user.id === otherUserId) return { error: "Cannot chat with yourself." };
 
-  // Find existing conversation that includes both users
-  const { data: existing } = await supabase
-    .from("conversation_participants")
-    .select("conversation_id")
-    .eq("user_id", user.id);
-
-  if (existing && existing.length > 0) {
-    const myConvIds = existing.map((r) => r.conversation_id);
-    const { data: shared } = await supabase
+  try {
+    // Check for existing conversation
+    const { data: myParticipations } = await supabase
       .from("conversation_participants")
       .select("conversation_id")
-      .eq("user_id", otherUserId)
-      .in("conversation_id", myConvIds);
+      .eq("user_id", user.id);
 
-    if (shared && shared.length > 0) {
-      return { conversationId: shared[0].conversation_id };
+    if (myParticipations && myParticipations.length > 0) {
+      const myConvIds = myParticipations.map((r: any) => r.conversation_id);
+
+      const { data: shared } = await supabase
+        .from("conversation_participants")
+        .select("conversation_id")
+        .eq("user_id", otherUserId)
+        .in("conversation_id", myConvIds);
+
+      if (shared && shared.length > 0) {
+        return { conversationId: shared[0].conversation_id };
+      }
     }
+
+    // Use service role workaround — insert directly
+    const { data: conv, error: convErr } = await supabase
+      .from("conversations")
+      .insert({ created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .select()
+      .single();
+
+    if (convErr || !conv) {
+      return { error: `Failed to create conversation: ${convErr?.message}` };
+    }
+
+    const { error: partErr } = await supabase
+      .from("conversation_participants")
+      .insert([
+        { conversation_id: conv.id, user_id: user.id },
+        { conversation_id: conv.id, user_id: otherUserId },
+      ]);
+
+    if (partErr) {
+      return { error: `Failed to add participants: ${partErr.message}` };
+    }
+
+    return { conversationId: conv.id };
+  } catch (e: any) {
+    return { error: e.message };
   }
-
-  // Create new conversation
-  const { data: conv, error: convErr } = await supabase
-    .from("conversations")
-    .insert({})
-    .select()
-    .single();
-
-  if (convErr || !conv) return { error: "Failed to create conversation." };
-
-  // Add both participants
-  await supabase.from("conversation_participants").insert([
-    { conversation_id: conv.id, user_id: user.id },
-    { conversation_id: conv.id, user_id: otherUserId },
-  ]);
-
-  return { conversationId: conv.id };
 }
 
-/** Mark all unread messages in a conversation as read */
 export async function markMessagesRead(conversationId: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -93,7 +96,6 @@ export async function markMessagesRead(conversationId: string) {
     .is("read_at", null);
 }
 
-/** Update user profile */
 export async function updateProfile(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -103,9 +105,7 @@ export async function updateProfile(formData: FormData) {
   const full_name = formData.get("full_name") as string;
   const bio = formData.get("bio") as string;
 
-  if (!username || username.length < 3) {
-    return { error: "Username must be at least 3 characters." };
-  }
+  if (!username || username.length < 3) return { error: "Username must be at least 3 characters." };
 
   const { error } = await supabase
     .from("profiles")
@@ -118,7 +118,6 @@ export async function updateProfile(formData: FormData) {
   return { success: true };
 }
 
-/** Upload avatar and update profile */
 export async function uploadAvatar(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
