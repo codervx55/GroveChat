@@ -3,13 +3,15 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { MessageSquare, Search, Settings, LogOut, User, X, Loader2 } from "lucide-react";
+import { Search, Settings, LogOut, User, X, Loader2 } from "lucide-react";
 import { cn, formatConversationTime, getInitials } from "@/lib/utils";
 import { signOut } from "@/lib/actions/auth";
 import { getOrCreateConversation } from "@/lib/actions/chat";
 import { createClient } from "@/lib/supabase/client";
 import type { Conversation, Profile } from "@/types";
 import toast from "react-hot-toast";
+
+const LOGO = "https://xmfllrzxkcqexehrveur.supabase.co/storage/v1/object/public/avatars/IMG_7205.png";
 
 interface Props {
   currentUser: Profile | null;
@@ -59,16 +61,21 @@ export default function Sidebar({ currentUser, conversations, currentUserId }: P
   return (
     <div className="flex flex-col h-full w-full bg-zinc-900">
       {/* Header */}
-      <div className="px-4 pt-12 pb-4 bg-zinc-900">
+      <div className="px-4 pt-12 pb-4">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/30">
-              <MessageSquare className="w-5 h-5 text-white" />
-            </div>
+            <img
+              src={LOGO}
+              alt="GroveChat"
+              className="w-9 h-9 rounded-xl object-cover shadow-md"
+            />
             <span className="font-bold text-white text-xl tracking-tight">GroveChat</span>
           </div>
           <div className="flex items-center gap-2">
-            <Link href="/profile" className="w-9 h-9 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white transition-colors">
+            <Link
+              href="/profile"
+              className="w-9 h-9 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+            >
               <Settings className="w-4 h-4" />
             </Link>
             <button
@@ -80,7 +87,7 @@ export default function Sidebar({ currentUser, conversations, currentUserId }: P
           </div>
         </div>
 
-        {/* Search bar */}
+        {/* Search */}
         <div className="relative">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
           <input
@@ -90,7 +97,10 @@ export default function Sidebar({ currentUser, conversations, currentUserId }: P
             className="w-full bg-zinc-800 border border-zinc-700/50 rounded-2xl pl-10 pr-9 py-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all"
           />
           {search && (
-            <button onClick={() => { setSearch(""); setSearchResults([]); }} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
+            <button
+              onClick={() => { setSearch(""); setSearchResults([]); }}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+            >
               <X className="w-4 h-4" />
             </button>
           )}
@@ -128,14 +138,16 @@ export default function Sidebar({ currentUser, conversations, currentUserId }: P
 
       {/* Conversations */}
       {!search && (
-        <div className="flex-1 overflow-y-auto px-4">
+        <div className="flex-1 overflow-y-auto px-4" style={{ WebkitOverflowScrolling: "touch" }}>
           <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-3">Messages</p>
 
           {conversations.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-16 h-16 rounded-3xl bg-zinc-800 flex items-center justify-center mb-4">
-                <MessageSquare className="w-7 h-7 text-zinc-600" />
-              </div>
+              <img
+                src={LOGO}
+                alt="GroveChat"
+                className="w-14 h-14 rounded-2xl object-cover mb-4 opacity-50"
+              />
               <p className="text-sm font-medium text-zinc-400">No conversations yet</p>
               <p className="text-xs text-zinc-600 mt-1">Search for a user to start chatting</p>
             </div>
@@ -154,7 +166,7 @@ export default function Sidebar({ currentUser, conversations, currentUserId }: P
         </div>
       )}
 
-      {/* Current user footer */}
+      {/* Footer */}
       <div className="px-4 py-4 border-t border-zinc-800 flex items-center gap-3">
         <div className="relative flex-shrink-0">
           <Avatar profile={currentUser} size="sm" />
@@ -172,7 +184,9 @@ export default function Sidebar({ currentUser, conversations, currentUserId }: P
   );
 }
 
-function ConversationItem({ conv, isActive, currentUserId }: { conv: Conversation; isActive: boolean; currentUserId: string }) {
+function ConversationItem({ conv, isActive, currentUserId }: {
+  conv: Conversation; isActive: boolean; currentUserId: string;
+}) {
   const other = conv.other_user;
   const lastMsg = conv.last_message;
   const unread = conv.unread_count ?? 0;
@@ -204,7 +218,11 @@ function ConversationItem({ conv, isActive, currentUserId }: { conv: Conversatio
         </div>
         <div className="flex items-center justify-between mt-0.5">
           <p className={cn("text-xs truncate max-w-[170px]", unread > 0 ? "text-zinc-300" : "text-zinc-500")}>
-            {lastMsg ? (lastMsg.sender_id === currentUserId ? `You: ${lastMsg.content}` : lastMsg.content) : "No messages yet"}
+            {lastMsg
+              ? lastMsg.sender_id === currentUserId
+                ? `You: ${lastMsg.content}`
+                : lastMsg.content
+              : "No messages yet"}
           </p>
           {unread > 0 && (
             <span className="ml-2 flex-shrink-0 bg-blue-600 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
@@ -217,15 +235,30 @@ function ConversationItem({ conv, isActive, currentUserId }: { conv: Conversatio
   );
 }
 
-export function Avatar({ profile, size = "md" }: { profile: Profile | null; size?: "sm" | "md" | "lg" }) {
-  const sizes = { sm: "w-8 h-8 text-xs", md: "w-11 h-11 text-sm", lg: "w-16 h-16 text-lg" };
+export function Avatar({ profile, size = "md" }: {
+  profile: Profile | null; size?: "sm" | "md" | "lg";
+}) {
+  const sizes = {
+    sm: "w-8 h-8 text-xs",
+    md: "w-11 h-11 text-sm",
+    lg: "w-16 h-16 text-lg",
+  };
 
   if (profile?.avatar_url) {
-    return <img src={profile.avatar_url} alt={profile.username} className={cn("rounded-full object-cover flex-shrink-0 bg-zinc-800", sizes[size])} />;
+    return (
+      <img
+        src={profile.avatar_url}
+        alt={profile.username}
+        className={cn("rounded-full object-cover flex-shrink-0 bg-zinc-800", sizes[size])}
+      />
+    );
   }
 
   return (
-    <div className={cn("rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center flex-shrink-0 font-semibold text-white", sizes[size])}>
+    <div className={cn(
+      "rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center flex-shrink-0 font-semibold text-white",
+      sizes[size]
+    )}>
       {profile ? getInitials(profile.full_name ?? profile.username) : "?"}
     </div>
   );
