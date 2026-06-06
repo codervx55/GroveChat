@@ -12,6 +12,10 @@ const font = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "GroveChat — Real-time Messaging",
   description: "A modern real-time chat application",
+  icons: {
+    icon: "https://xmfllrzxkcqexehrveur.supabase.co/storage/v1/object/public/avatars/IMG_7205.png",
+    apple: "https://xmfllrzxkcqexehrveur.supabase.co/storage/v1/object/public/avatars/IMG_7205.png",
+  },
 };
 
 export const viewport = {
@@ -28,8 +32,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${font.variable} antialiased bg-zinc-950 text-zinc-100`}
-        style={{ fontFamily: "var(--font-main), system-ui, sans-serif" }}>
+      <body
+        className={`${font.variable} antialiased bg-zinc-950 text-zinc-100`}
+        style={{ fontFamily: "var(--font-main), system-ui, sans-serif" }}
+      >
         {children}
         <Toaster
           position="top-center"
