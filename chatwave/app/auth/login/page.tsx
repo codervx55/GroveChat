@@ -1,6 +1,5 @@
 import LoginForm from "@/components/auth/LoginForm";
 import Link from "next/link";
-import { MessageSquare } from "lucide-react";
 
 export default async function LoginPage({
   searchParams,
@@ -8,17 +7,20 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const params = await searchParams;
+
   return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-blue-600/10 rounded-full blur-[120px]" />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-blue-600/5 rounded-full blur-[120px]" />
       </div>
 
       <div className="w-full max-w-md relative z-10">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-600 mb-4 shadow-lg shadow-blue-600/30">
-            <MessageSquare className="w-7 h-7 text-white" />
-          </div>
+          <img
+            src="https://xmfllrzxkcqexehrveur.supabase.co/storage/v1/object/public/avatars/IMG_7205.png"
+            alt="GroveChat"
+            className="w-16 h-16 rounded-2xl object-cover mx-auto mb-4 shadow-lg"
+          />
           <h1 className="text-3xl font-bold text-white tracking-tight">GroveChat</h1>
           <p className="text-zinc-400 mt-1 text-sm">Real-time messaging, reimagined</p>
         </div>
