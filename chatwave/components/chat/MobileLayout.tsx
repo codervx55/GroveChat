@@ -1,33 +1,25 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import React from "react";
 
-interface MobileLayoutProps {
+export default function MobileLayout({
+  sidebar,
+  children,
+}: {
   sidebar: React.ReactNode;
   children: React.ReactNode;
-}
-
-export default function MobileLayout({ sidebar, children }: MobileLayoutProps) {
+}) {
   const pathname = usePathname();
-  const isChatOpen = pathname !== "/chat" && pathname.startsWith("/chat/");
+  const isChatOpen = pathname.startsWith("/chat/") && pathname !== "/chat/";
 
   return (
-    <div className="flex h-screen h-[100dvh] bg-zinc-950 overflow-hidden">
-      {/* Sidebar — hidden on mobile when a chat is open */}
-      <div
-        className={`w-full md:w-80 md:flex-shrink-0 flex flex-col bg-zinc-900 border-r border-zinc-800 h-full ${
-          isChatOpen ? "hidden md:flex" : "flex"
-        }`}
-      >
+    <div className="flex h-screen bg-[#0a0a0f] overflow-hidden">
+      {/* Sidebar — hidden on mobile when chat is open */}
+      <div className={`${isChatOpen ? "hidden md:flex" : "flex"} w-full md:w-80 flex-shrink-0 flex-col bg-zinc-900 border-r border-white/[0.06] h-full`}>
         {sidebar}
       </div>
-      {/* Chat area — full screen on mobile, hidden when no chat selected */}
-      <main
-        className={`flex-1 flex-col min-w-0 ${
-          isChatOpen ? "flex" : "hidden md:flex"
-        }`}
-      >
+      {/* Chat area — hidden on mobile when no chat open */}
+      <main className={`${isChatOpen ? "flex" : "hidden md:flex"} flex-1 flex-col min-w-0`}>
         {children}
       </main>
     </div>
