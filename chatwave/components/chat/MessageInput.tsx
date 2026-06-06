@@ -5,7 +5,7 @@ import { sendMessage } from "@/lib/actions/chat";
 import { createClient } from "@/lib/supabase/client";
 import { useChatStore } from "@/lib/store";
 import EmojiPicker, { Theme } from "emoji-picker-react";
-import { Smile, Send, Paperclip, Mic, X, Image as ImageIcon } from "lucide-react";
+import { Smile, Send, Paperclip, Mic, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 import type { Profile } from "@/types";
@@ -93,13 +93,26 @@ export default function MessageInput({ conversationId, currentUser, otherUserId 
 
   async function uploadImage(): Promise<string | null> {
     if (!imageFile || !currentUser) return null;
-    const ext = imageFile.name.split(".").pop();
-    const path = `${currentUser.id}/${Date.now()}.${ext}`;
-    const { error } = await supabase.storage
+
+    const ext = imageFile.name.split(".").pop() ?? "jpg";
+    const path = `public/${Date.now()}.${ext}`;
+
+    const { data, error } = await supabase.storage
       .from("chat-images")
-      .upload(path, imageFile, { upsert: false });
-    if (error) { toast.error("Failed to upload image"); return null; }
-    const { data: { publicUrl } } = supabase.storage.from("chat-images").getPublicUrl(path);
+      .upload(path, imageFile, {
+        upsert: true,
+        contentType: imageFile.type,
+      });
+
+    if (error) {
+      toast.error(error.message);
+      return null;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from("chat-images")
+      .getPublicUrl(path);
+
     return publicUrl;
   }
 
@@ -114,7 +127,6 @@ export default function MessageInput({ conversationId, currentUser, otherUserId 
       setUploadingImage(false);
       if (!imageUrl) return;
 
-      // Send image message
       const { error } = await supabase.from("messages").insert({
         conversation_id: conversationId,
         sender_id: currentUser?.id,
@@ -164,7 +176,6 @@ export default function MessageInput({ conversationId, currentUser, otherUserId 
 
   return (
     <div className="bg-zinc-900 border-t border-zinc-800 px-3 py-2">
-      {/* Emoji picker */}
       {showEmoji && (
         <div className="emoji-wrap absolute bottom-20 left-2 z-50 rounded-xl overflow-hidden shadow-2xl">
           <EmojiPicker
@@ -177,7 +188,6 @@ export default function MessageInput({ conversationId, currentUser, otherUserId 
         </div>
       )}
 
-      {/* Image preview */}
       {imagePreview && (
         <div className="relative mb-2 inline-block">
           <img
@@ -200,7 +210,6 @@ export default function MessageInput({ conversationId, currentUser, otherUserId 
       )}
 
       <div className="flex items-end gap-2">
-        {/* Hidden file input */}
         <input
           ref={fileRef}
           type="file"
@@ -209,7 +218,6 @@ export default function MessageInput({ conversationId, currentUser, otherUserId 
           onChange={handleFileChange}
         />
 
-        {/* Emoji */}
         <button
           type="button"
           onClick={() => setShowEmoji(v => !v)}
@@ -221,7 +229,6 @@ export default function MessageInput({ conversationId, currentUser, otherUserId 
           <Smile className="w-5 h-5" />
         </button>
 
-        {/* Text input */}
         <div className="flex-1 bg-zinc-800 rounded-2xl px-3.5 py-2.5 border border-zinc-700/40 focus-within:border-zinc-600 transition-colors">
           <textarea
             ref={inputRef}
@@ -235,7 +242,6 @@ export default function MessageInput({ conversationId, currentUser, otherUserId 
           />
         </div>
 
-        {/* Attach image */}
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
@@ -244,7 +250,6 @@ export default function MessageInput({ conversationId, currentUser, otherUserId 
           <Paperclip className="w-5 h-5" />
         </button>
 
-        {/* Send or Mic */}
         {hasContent ? (
           <button
             type="button"
