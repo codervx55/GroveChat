@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Sidebar from "@/components/chat/Sidebar";
+import MobileLayout from "@/components/chat/MobileLayout";
 
 export default async function ChatLayout({
   children,
@@ -8,7 +9,6 @@ export default async function ChatLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
-
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
 
@@ -24,7 +24,6 @@ export default async function ChatLayout({
     .eq("user_id", user.id);
 
   const conversationIds = participantRows?.map((r) => r.conversation_id) ?? [];
-
   let conversations: any[] = [];
 
   if (conversationIds.length > 0) {
@@ -80,19 +79,16 @@ export default async function ChatLayout({
   }
 
   return (
-    <div className="flex h-screen h-[100dvh] bg-zinc-950 overflow-hidden">
-      {/* Sidebar — hidden on mobile when chat is open */}
-      <div className="w-full md:w-80 md:flex-shrink-0 flex flex-col bg-zinc-900 border-r border-zinc-800 h-full">
+    <MobileLayout
+      sidebar={
         <Sidebar
           currentUser={profile}
           conversations={conversations}
           currentUserId={user.id}
         />
-      </div>
-      {/* Chat area — full screen on mobile */}
-      <main className="hidden md:flex flex-1 flex-col min-w-0">
-        {children}
-      </main>
-    </div>
+      }
+    >
+      {children}
+    </MobileLayout>
   );
 }
