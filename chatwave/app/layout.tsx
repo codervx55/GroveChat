@@ -13,8 +13,8 @@ export const metadata: Metadata = {
   title: "GroveChat — Real-time Messaging",
   description: "A modern real-time chat application",
   icons: {
-    icon: "https://xmfllrzxkcqexehrveur.supabase.co/storage/v1/object/public/avatars/IMG_7205.png",
-    apple: "https://xmfllrzxkcqexehrveur.supabase.co/storage/v1/object/public/avatars/IMG_7205.png",
+    icon: "https://xmfllrzxkcqexehrveur.supabase.co/storage/v1/object/public/avatars/IMG_7212.png",
+    apple: "https://xmfllrzxkcqexehrveur.supabase.co/storage/v1/object/public/avatars/IMG_7212.png",
   },
 };
 
