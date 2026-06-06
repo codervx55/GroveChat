@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { CheckCheck, Check } from "lucide-react";
 import { cn, formatMessageTime } from "@/lib/utils";
-import { Avatar } from "./Sidebar";
 import type { Message, Profile } from "@/types";
 
 const REACTIONS = ["❤️", "😂", "👍", "😮", "😢", "🔥"];
@@ -17,42 +16,28 @@ interface Props {
 }
 
 export default function MessageBubble({ message, isMe, isFirst, isLast, otherUser }: Props) {
-  const [showReactions, setShowReactions] = useState(false);
   const [reaction, setReaction] = useState<string | null>(null);
-
-  const bubbleRadius = isMe
-    ? cn("rounded-2xl", isFirst ? "rounded-tr-sm" : "", isLast ? "rounded-br-sm" : "")
-    : cn("rounded-2xl", isFirst ? "rounded-tl-sm" : "", isLast ? "rounded-bl-sm" : "");
+  const [showPicker, setShowPicker] = useState(false);
 
   return (
-    <div
-      className={cn(
-        "flex items-end gap-2 msg-enter group",
-        isMe ? "justify-end" : "justify-start",
-        isLast ? "mb-3" : "mb-0.5"
-      )}
-    >
-      {/* Avatar for received messages */}
-      {!isMe && (
-        <div className="w-7 flex-shrink-0 mb-0.5">
-          {isLast && <Avatar profile={otherUser} size="sm" />}
-        </div>
-      )}
+    <div className={cn(
+      "flex flex-col",
+      isMe ? "items-end" : "items-start",
+      isLast ? "mb-2" : "mb-0.5"
+    )}>
+      <div className="relative group max-w-[78%] md:max-w-[60%]">
 
-      <div className={cn("flex flex-col max-w-[72%] md:max-w-[60%]", isMe ? "items-end" : "items-start")}>
-        {/* Reaction bar */}
-        <div
-          className={cn(
-            "flex items-center gap-1 mb-1.5 px-2 py-1 glass rounded-full",
-            "opacity-0 group-hover:opacity-100 transition-all duration-200",
-            isMe ? "self-end" : "self-start"
-          )}
-        >
+        {/* Reaction picker on hover */}
+        <div className={cn(
+          "absolute -top-8 z-10 flex items-center gap-0.5 px-1.5 py-1 rounded-full bg-zinc-800 border border-zinc-700/50 shadow-lg",
+          "opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none group-hover:pointer-events-auto",
+          isMe ? "right-0" : "left-0"
+        )}>
           {REACTIONS.map((r) => (
             <button
               key={r}
-              onClick={() => { setReaction(reaction === r ? null : r); setShowReactions(false); }}
-              className="text-base hover:scale-125 transition-transform leading-none"
+              onClick={() => setReaction(reaction === r ? null : r)}
+              className="text-sm hover:scale-125 transition-transform px-0.5 leading-none"
             >
               {r}
             </button>
@@ -60,51 +45,43 @@ export default function MessageBubble({ message, isMe, isFirst, isLast, otherUse
         </div>
 
         {/* Bubble */}
-        <div
-          className={cn(
-            "relative px-4 py-2.5 msg-bubble",
-            bubbleRadius,
-            isMe
-              ? "bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/20"
-              : "glass text-zinc-100 shadow-sm"
-          )}
-        >
-          <p className="text-[14.5px] leading-relaxed break-words whitespace-pre-wrap">
-            {message.content}
-          </p>
+        <div className={cn(
+          "px-3 py-2 text-sm leading-relaxed break-words",
+          isMe
+            ? "bg-blue-500 text-white rounded-2xl rounded-br-md"
+            : "bg-zinc-800 text-zinc-100 rounded-2xl rounded-bl-md",
+          !isLast && isMe && "rounded-br-2xl",
+          !isLast && !isMe && "rounded-bl-2xl",
+        )}>
+          <span>{message.content}</span>
 
-          {/* Time + read receipt */}
-          <div className={cn(
-            "flex items-center gap-1 mt-1",
-            isMe ? "justify-end" : "justify-start"
+          {/* Inline time + read receipt */}
+          <span className={cn(
+            "inline-flex items-center gap-0.5 ml-2 float-right mt-1",
+            isMe ? "text-blue-200/60" : "text-zinc-500"
           )}>
-            <span className={cn(
-              "text-[10px] font-medium",
-              isMe ? "text-blue-200/70" : "text-zinc-500"
-            )}>
-              {formatMessageTime(message.created_at)}
-            </span>
+            <span className="text-[10px]">{formatMessageTime(message.created_at)}</span>
             {isMe && (
               message.read_at
-                ? <CheckCheck className="w-3 h-3 text-blue-200" />
-                : <Check className="w-3 h-3 text-blue-300/50" />
+                ? <CheckCheck className="w-3 h-3 text-blue-200/70" />
+                : <Check className="w-3 h-3 text-blue-300/40" />
             )}
-          </div>
+          </span>
         </div>
 
-        {/* Reaction display */}
+        {/* Attached reaction */}
         {reaction && (
           <button
             onClick={() => setReaction(null)}
-            className="mt-1 px-2 py-0.5 glass rounded-full text-sm hover:scale-110 transition-transform"
+            className={cn(
+              "absolute -bottom-3 px-1.5 py-0.5 text-xs rounded-full bg-zinc-800 border border-zinc-700/50 shadow-sm hover:scale-110 transition-transform",
+              isMe ? "right-1" : "left-1"
+            )}
           >
-            {reaction} <span className="text-[10px] text-zinc-500 ml-0.5">1</span>
+            {reaction}
           </button>
         )}
       </div>
-
-      {/* Spacer for sent messages */}
-      {isMe && <div className="w-2 flex-shrink-0" />}
     </div>
   );
 }
