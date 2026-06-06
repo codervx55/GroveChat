@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Conversation, Profile } from "@/types";
 import toast from "react-hot-toast";
 
-const LOGO = "https://xmfllrzxkcqexehrveur.supabase.co/storage/v1/object/public/avatars/IMG_7205.png";
+const LOGO = "https://xmfllrzxkcqexehrveur.supabase.co/storage/v1/object/public/avatars/IMG_7212.png";
 
 interface Props {
   currentUser: Profile | null;
@@ -67,7 +67,7 @@ export default function Sidebar({ currentUser, conversations, currentUserId }: P
             <img
               src={LOGO}
               alt="GroveChat"
-              className="w-9 h-9 rounded-xl object-cover shadow-md"
+              className="w-9 h-9 object-contain"
             />
             <span className="font-bold text-white text-xl tracking-tight">GroveChat</span>
           </div>
@@ -143,11 +143,7 @@ export default function Sidebar({ currentUser, conversations, currentUserId }: P
 
           {conversations.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <img
-                src={LOGO}
-                alt="GroveChat"
-                className="w-14 h-14 rounded-2xl object-cover mb-4 opacity-50"
-              />
+              <img src={LOGO} alt="GroveChat" className="w-14 h-14 object-contain mb-4 opacity-50" />
               <p className="text-sm font-medium text-zinc-400">No conversations yet</p>
               <p className="text-xs text-zinc-600 mt-1">Search for a user to start chatting</p>
             </div>
