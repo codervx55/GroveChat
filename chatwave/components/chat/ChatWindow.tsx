@@ -1,180 +1,158 @@
-// components/chat/ChatWindow.tsx — Full chat window with realtime
-"use client";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-import { useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { useChatStore } from "@/lib/store";
-import { markMessagesRead } from "@/lib/actions/chat";
-import MessageBubble from "./MessageBubble";
-import MessageInput from "./MessageInput";
-import { Avatar } from "./Sidebar";
-import { formatLastSeen } from "@/lib/utils";
-import type { Message, Profile } from "@/types";
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-interface Props {
-  conversationId: string;
-  otherUser: Profile | null;
-  initialMessages: Message[];
-  currentUser: Profile | null;
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-[#0a0a0f] text-zinc-100;
+    overflow: hidden;
+  }
+
+  ::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-zinc-700/50 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-zinc-600;
+  }
 }
 
-export default function ChatWindow({
-  conversationId,
-  otherUser,
-  initialMessages,
-  currentUser,
-}: Props) {
-  const router = useRouter();
-  const supabase = createClient();
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const { messages, setMessages, addMessage, typingUsers } = useChatStore();
+@layer components {
+  /* Message entrance animation */
+  .msg-enter {
+    animation: msgEnter 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
 
-  const convMessages = messages[conversationId] ?? initialMessages;
+  @keyframes msgEnter {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
 
-  // Seed store with initial messages
-  useEffect(() => {
-    setMessages(conversationId, initialMessages);
-  }, [conversationId]);
+  /* Typing dots */
+  .typing-dot {
+    @apply w-1.5 h-1.5 rounded-full bg-zinc-400;
+    animation: typingPulse 1.5s ease-in-out infinite;
+  }
 
-  // Scroll to bottom on new messages
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [convMessages.length]);
+  .typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+  }
 
-  // Mark messages read when opening
-  useEffect(() => {
-    markMessagesRead(conversationId);
-  }, [conversationId]);
+  .typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
+  }
 
-  // Subscribe to new messages via Supabase Realtime
-  useEffect(() => {
-    const channel = supabase
-      .channel(`messages:${conversationId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        async (payload) => {
-          // Fetch sender profile for the new message
-          const { data: sender } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", payload.new.sender_id)
-            .single();
+  @keyframes typingPulse {
+    0%, 60%, 100% {
+      transform: translateY(0);
+      opacity: 0.4;
+    }
+    30% {
+      transform: translateY(-4px);
+      opacity: 1;
+    }
+  }
 
-          const msg: Message = { ...payload.new, sender } as Message;
-          addMessage(msg);
+  /* Online pulse ring */
+  @keyframes onlineRing {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(1.1); }
+  }
 
-          // Auto-mark as read if from other user
-          if (payload.new.sender_id !== currentUser?.id) {
-            markMessagesRead(conversationId);
-          }
+  .online-ring {
+    animation: onlineRing 2.5s ease-in-out infinite;
+  }
 
-          router.refresh(); // refresh sidebar unread counts
-        }
-      )
-      .subscribe();
+  /* Glass effect */
+  .glass {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
 
-    return () => { supabase.removeChannel(channel); };
-  }, [conversationId, currentUser?.id]);
+  .glass-dark {
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
 
-  const typingInThisConv = typingUsers.filter(
-    (t) => t.conversation_id === conversationId && t.user_id !== currentUser?.id
-  );
+  /* Gradient text */
+  .gradient-text {
+    background: linear-gradient(135deg, #60a5fa, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
 
-  return (
-    <div className="flex flex-col h-full bg-zinc-950">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-zinc-900 border-b border-zinc-800 flex-shrink-0">
-        {/* Back button (mobile) */}
-        <Link href="/chat" className="md:hidden text-zinc-400 hover:text-white mr-1">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
+  /* Message bubble hover reactions */
+  .reaction-bar {
+    @apply opacity-0 scale-90 pointer-events-none;
+    transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
 
-        <div className="relative flex-shrink-0">
-          <Avatar profile={otherUser} size="md" />
-          {otherUser?.is_online && (
-            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-zinc-900" />
-          )}
-        </div>
+  .msg-bubble:hover .reaction-bar {
+    @apply opacity-100 scale-100 pointer-events-auto;
+  }
 
-        <div className="flex-1 min-w-0">
-          <h2 className="font-semibold text-white text-sm truncate">
-            {otherUser?.username ?? "Unknown"}
-          </h2>
-          <p className="text-xs text-zinc-500 truncate">
-            {otherUser?.is_online
-              ? <span className="text-emerald-400">Online</span>
-              : otherUser?.last_seen
-              ? `Last seen ${formatLastSeen(otherUser.last_seen)}`
-              : "Offline"}
-          </p>
-        </div>
-      </div>
+  /* Sidebar item hover */
+  .conv-item {
+    transition: all 0.15s ease;
+  }
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
-        {convMessages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-16 h-16 rounded-3xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4">
-              <Avatar profile={otherUser} size="md" />
-            </div>
-            <p className="text-white font-semibold">{otherUser?.username}</p>
-            <p className="text-zinc-500 text-sm mt-1">
-              Say hello! This is the beginning of your conversation.
-            </p>
-          </div>
-        ) : (
-          <>
-            {convMessages.map((msg, i) => {
-              const isMe = msg.sender_id === currentUser?.id;
-              const prevMsg = convMessages[i - 1];
-              const showAvatar = !isMe && (
-                !prevMsg || prevMsg.sender_id !== msg.sender_id
-              );
+  .conv-item:hover {
+    transform: translateX(2px);
+  }
 
-              return (
-                <MessageBubble
-                  key={msg.id}
-                  message={msg}
-                  isMe={isMe}
-                  showAvatar={showAvatar}
-                  otherUser={otherUser}
-                />
-              );
-            })}
+  /* Input focus glow */
+  .input-glow:focus-within {
+    box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.3), 0 0 20px rgba(96, 165, 250, 0.1);
+  }
 
-            {/* Typing indicator */}
-            {typingInThisConv.length > 0 && (
-              <div className="flex items-end gap-2 mb-2">
-                <Avatar profile={otherUser} size="sm" />
-                <div className="bg-zinc-800 rounded-2xl rounded-bl-sm px-4 py-3">
-                  <div className="flex gap-1 items-center">
-                    <span className="typing-dot" />
-                    <span className="typing-dot" />
-                    <span className="typing-dot" />
-                  </div>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-        <div ref={bottomRef} />
-      </div>
+  /* Shimmer loading */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(255,255,255,0.03) 25%,
+      rgba(255,255,255,0.07) 50%,
+      rgba(255,255,255,0.03) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
 
-      {/* Input */}
-      <MessageInput
-        conversationId={conversationId}
-        currentUser={currentUser}
-        otherUserId={otherUser?.id ?? ""}
-      />
-    </div>
-  );
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
 }
