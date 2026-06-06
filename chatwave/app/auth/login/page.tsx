@@ -3,11 +3,12 @@ import LoginForm from "@/components/auth/LoginForm";
 import Link from "next/link";
 import { MessageSquare } from "lucide-react";
 
-export default function LoginPage({
+export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: { error?: string };
+  searchParams: Promise<{ error?: string }>;
 }) {
+  const { error } = await searchParams;
   return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
       {/* Background glow */}
@@ -30,7 +31,7 @@ export default function LoginPage({
           <h2 className="text-xl font-semibold text-white mb-1">Welcome back</h2>
           <p className="text-zinc-400 text-sm mb-6">Sign in to your account</p>
 
-          {searchParams.error && (
+          {error && (
             <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
               Authentication failed. Please try again.
             </div>
