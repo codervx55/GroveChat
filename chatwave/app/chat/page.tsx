@@ -1,61 +1,15 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect, notFound } from "next/navigation";
-import ChatWindow from "@/components/chat/ChatWindow";
+import { MessageSquare } from "lucide-react";
 
-interface Props {
-  params: Promise<{ id: string }>;
-}
-
-export default async function ConversationPage({ params }: Props) {
-  const { id } = await params;
-  const supabase = await createClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/auth/login");
-
-  const { data: participant } = await supabase
-    .from("conversation_participants")
-    .select("conversation_id")
-    .eq("conversation_id", id)
-    .eq("user_id", user.id)
-    .single();
-
-  if (!participant) notFound();
-
-  const { data: otherParticipant } = await supabase
-    .from("conversation_participants")
-    .select("user_id")
-    .eq("conversation_id", id)
-    .neq("user_id", user.id)
-    .single();
-
-  const { data: otherUser } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", otherParticipant?.user_id ?? "")
-    .single();
-
-  const { data: messages } = await supabase
-    .from("messages")
-    .select(`*, sender:profiles(*)`)
-    .eq("conversation_id", id)
-    .order("created_at", { ascending: true })
-    .limit(50);
-
-  const { data: currentUserProfile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
+export default function ChatHomePage() {
   return (
-    <div className="fixed inset-0 md:relative md:inset-auto flex flex-col bg-zinc-950 z-50">
-      <ChatWindow
-        conversationId={id}
-        otherUser={otherUser}
-        initialMessages={messages ?? []}
-        currentUser={currentUserProfile}
-      />
+    <div className="flex-1 flex flex-col items-center justify-center bg-zinc-950 text-center p-8">
+      <div className="w-20 h-20 rounded-3xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-5">
+        <MessageSquare className="w-9 h-9 text-zinc-600" />
+      </div>
+      <h2 className="text-xl font-semibold text-white mb-2">Your Messages</h2>
+      <p className="text-zinc-500 text-sm max-w-xs leading-relaxed">
+        Select a conversation or search for a user to start chatting.
+      </p>
     </div>
   );
 }
