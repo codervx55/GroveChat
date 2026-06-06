@@ -4,7 +4,22 @@
 
 @layer base {
   * { box-sizing: border-box; }
-  body { @apply bg-zinc-950 text-zinc-100 overflow-hidden; }
+
+  html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-zinc-950 text-zinc-100;
+    font-family: var(--font-main), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    touch-action: manipulation;
+  }
+
   ::-webkit-scrollbar { width: 3px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { @apply bg-zinc-700 rounded-full; }
@@ -12,10 +27,10 @@
 
 @layer components {
   .msg-in {
-    animation: msgIn 0.2s ease-out forwards;
+    animation: msgIn 0.18s ease-out forwards;
   }
   @keyframes msgIn {
-    from { opacity: 0; transform: translateY(6px); }
+    from { opacity: 0; transform: translateY(5px); }
     to   { opacity: 1; transform: translateY(0); }
   }
 
