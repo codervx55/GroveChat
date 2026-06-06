@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useChatStore } from "@/lib/store";
@@ -10,7 +10,7 @@ import MessageInput from "./MessageInput";
 import { Avatar } from "./Sidebar";
 import { formatLastSeen } from "@/lib/utils";
 import type { Message, Profile } from "@/types";
-import { ArrowLeft, Phone, Video, MoreVertical, Search } from "lucide-react";
+import { ArrowLeft, Phone, Video, MoreVertical } from "lucide-react";
 import Link from "next/link";
 
 interface Props {
@@ -29,9 +29,7 @@ export default function ChatWindow({
   const router = useRouter();
   const supabase = createClient();
   const bottomRef = useRef<HTMLDivElement>(null);
-  const messagesRef = useRef<HTMLDivElement>(null);
   const { messages, setMessages, addMessage, typingUsers } = useChatStore();
-  const [showScrollBtn, setShowScrollBtn] = useState(false);
 
   const convMessages = messages[conversationId] ?? initialMessages;
 
@@ -39,31 +37,14 @@ export default function ChatWindow({
     setMessages(conversationId, initialMessages);
   }, [conversationId]);
 
-  const scrollToBottom = useCallback((smooth = true) => {
-    bottomRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto" });
-  }, []);
-
   useEffect(() => {
-    scrollToBottom(convMessages.length === initialMessages.length);
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [convMessages.length]);
 
   useEffect(() => {
     markMessagesRead(conversationId);
   }, [conversationId]);
 
-  // Handle scroll to show/hide scroll button
-  useEffect(() => {
-    const el = messagesRef.current;
-    if (!el) return;
-    const onScroll = () => {
-      const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-      setShowScrollBtn(distFromBottom > 200);
-    };
-    el.addEventListener("scroll", onScroll);
-    return () => el.removeEventListener("scroll", onScroll);
-  }, []);
-
-  // Realtime subscription
   useEffect(() => {
     const channel = supabase
       .channel(`messages:${conversationId}`)
@@ -81,10 +62,8 @@ export default function ChatWindow({
             .select("*")
             .eq("id", payload.new.sender_id)
             .single();
-
           const msg: Message = { ...payload.new, sender } as Message;
           addMessage(msg);
-
           if (payload.new.sender_id !== currentUser?.id) {
             markMessagesRead(conversationId);
           }
@@ -92,7 +71,6 @@ export default function ChatWindow({
         }
       )
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [conversationId, currentUser?.id]);
 
@@ -100,134 +78,116 @@ export default function ChatWindow({
     (t) => t.conversation_id === conversationId && t.user_id !== currentUser?.id
   );
 
-  // Group messages by date
-  const groupedMessages = convMessages.reduce((groups: { date: string; messages: Message[] }[], msg) => {
+  // Group by date
+  const groups = convMessages.reduce((acc: { date: string; msgs: Message[] }[], msg) => {
     const date = new Date(msg.created_at).toLocaleDateString("en-US", {
-      weekday: "long", month: "long", day: "numeric"
+      weekday: "long", month: "short", day: "numeric"
     });
-    const lastGroup = groups[groups.length - 1];
-    if (lastGroup && lastGroup.date === date) {
-      lastGroup.messages.push(msg);
+    const last = acc[acc.length - 1];
+    if (last && last.date === date) {
+      last.msgs.push(msg);
     } else {
-      groups.push({ date, messages: [msg] });
+      acc.push({ date, msgs: [msg] });
     }
-    return groups;
+    return acc;
   }, []);
 
   return (
-    <div className="flex flex-col h-full bg-[#0a0a0f] relative">
-      {/* Subtle background pattern */}
-      <div className="absolute inset-0 opacity-[0.015] pointer-events-none"
-        style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "32px 32px" }}
-      />
+    <div className="flex flex-col h-full bg-zinc-950">
 
       {/* Header */}
-      <div className="relative z-10 flex items-center gap-3 px-4 py-3 border-b border-white/[0.06] glass-dark flex-shrink-0">
-        <Link href="/chat" className="md:hidden p-2 -ml-1 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-all">
+      <div className="flex items-center gap-3 px-3 py-2.5 bg-zinc-900 border-b border-zinc-800/60 flex-shrink-0">
+        <Link
+          href="/chat"
+          className="md:hidden p-1.5 -ml-1 rounded-lg text-zinc-400 hover:text-white transition-colors"
+        >
           <ArrowLeft className="w-5 h-5" />
         </Link>
 
-        <div className="relative cursor-pointer group">
-          <Avatar profile={otherUser} size="md" />
+        <div className="relative">
+          <Avatar profile={otherUser} size="sm" />
           {otherUser?.is_online && (
-            <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-400 ring-2 ring-[#0a0a0f] online-ring" />
+            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-zinc-900" />
           )}
         </div>
 
         <div className="flex-1 min-w-0">
-          <h2 className="font-semibold text-white text-[15px] truncate leading-tight">
+          <p className="text-sm font-semibold text-white truncate leading-none mb-0.5">
             {otherUser?.username ?? "Unknown"}
-          </h2>
-          <p className="text-xs truncate mt-0.5">
-            {otherUser?.is_online ? (
-              <span className="text-emerald-400 font-medium">Active now</span>
-            ) : otherUser?.last_seen ? (
-              <span className="text-zinc-500">Last seen {formatLastSeen(otherUser.last_seen)}</span>
-            ) : (
-              <span className="text-zinc-600">Offline</span>
-            )}
+          </p>
+          <p className="text-[11px] truncate">
+            {otherUser?.is_online
+              ? <span className="text-emerald-400">online</span>
+              : otherUser?.last_seen
+              ? <span className="text-zinc-500">{formatLastSeen(otherUser.last_seen)}</span>
+              : <span className="text-zinc-600">offline</span>
+            }
           </p>
         </div>
 
-        {/* Action buttons */}
-        <div className="flex items-center gap-1">
-          <button className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-white/5 transition-all">
-            <Phone className="w-4.5 h-4.5" style={{width: '18px', height: '18px'}} />
+        <div className="flex items-center gap-0.5">
+          <button className="p-2 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors">
+            <Phone className="w-4 h-4" />
           </button>
-          <button className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-white/5 transition-all">
-            <Video className="w-4.5 h-4.5" style={{width: '18px', height: '18px'}} />
+          <button className="p-2 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors">
+            <Video className="w-4 h-4" />
           </button>
-          <button className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-white/5 transition-all">
-            <MoreVertical className="w-4.5 h-4.5" style={{width: '18px', height: '18px'}} />
+          <button className="p-2 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors">
+            <MoreVertical className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* Messages area */}
-      <div
-        ref={messagesRef}
-        className="flex-1 overflow-y-auto px-4 py-6 space-y-1 relative z-10"
-        style={{ scrollbarWidth: 'thin' }}
-      >
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-3 py-3">
         {convMessages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center py-16">
-            <div className="relative mb-6">
-              <div className="w-20 h-20 rounded-3xl overflow-hidden ring-2 ring-white/10">
-                <Avatar profile={otherUser} size="lg" />
-              </div>
+          <div className="flex flex-col items-center justify-center h-full text-center py-12">
+            <div className="relative mb-4">
+              <Avatar profile={otherUser} size="lg" />
               {otherUser?.is_online && (
-                <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-400 ring-2 ring-[#0a0a0f]" />
+                <div className="absolute bottom-1 right-1 w-3 h-3 rounded-full bg-emerald-400 ring-2 ring-zinc-950" />
               )}
             </div>
-            <h3 className="text-white font-semibold text-lg mb-1">{otherUser?.username}</h3>
-            {otherUser?.bio && <p className="text-zinc-500 text-sm mb-4 max-w-xs">{otherUser.bio}</p>}
-            <div className="glass rounded-2xl px-4 py-2.5">
-              <p className="text-zinc-400 text-sm">👋 Say hello to start the conversation</p>
-            </div>
+            <p className="font-semibold text-white text-base mb-1">{otherUser?.username}</p>
+            <p className="text-zinc-500 text-sm">Start a conversation</p>
           </div>
         ) : (
           <>
-            {groupedMessages.map((group) => (
+            {groups.map((group) => (
               <div key={group.date}>
-                {/* Date divider */}
-                <div className="flex items-center gap-3 my-6">
-                  <div className="flex-1 h-px bg-white/[0.06]" />
-                  <span className="text-[11px] font-medium text-zinc-600 px-3 py-1 glass rounded-full">
+                {/* Date label */}
+                <div className="flex items-center justify-center my-4">
+                  <span className="text-[11px] text-zinc-500 bg-zinc-800/60 px-3 py-1 rounded-full">
                     {group.date}
                   </span>
-                  <div className="flex-1 h-px bg-white/[0.06]" />
                 </div>
 
-                <div className="space-y-1">
-                  {group.messages.map((msg, i) => {
-                    const isMe = msg.sender_id === currentUser?.id;
-                    const prevMsg = group.messages[i - 1];
-                    const nextMsg = group.messages[i + 1];
-                    const isFirst = !prevMsg || prevMsg.sender_id !== msg.sender_id;
-                    const isLast = !nextMsg || nextMsg.sender_id !== msg.sender_id;
+                {group.msgs.map((msg, i) => {
+                  const isMe = msg.sender_id === currentUser?.id;
+                  const prev = group.msgs[i - 1];
+                  const next = group.msgs[i + 1];
+                  const isFirst = !prev || prev.sender_id !== msg.sender_id;
+                  const isLast = !next || next.sender_id !== msg.sender_id;
 
-                    return (
-                      <MessageBubble
-                        key={msg.id}
-                        message={msg}
-                        isMe={isMe}
-                        isFirst={isFirst}
-                        isLast={isLast}
-                        otherUser={otherUser}
-                      />
-                    );
-                  })}
-                </div>
+                  return (
+                    <MessageBubble
+                      key={msg.id}
+                      message={msg}
+                      isMe={isMe}
+                      isFirst={isFirst}
+                      isLast={isLast}
+                      otherUser={otherUser}
+                    />
+                  );
+                })}
               </div>
             ))}
 
-            {/* Typing indicator */}
+            {/* Typing */}
             {typingInThisConv.length > 0 && (
-              <div className="flex items-end gap-2 mt-2 msg-enter">
-                <div className="w-7 h-7 flex-shrink-0">
-                  <Avatar profile={otherUser} size="sm" />
-                </div>
-                <div className="glass rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-1.5">
+              <div className="flex items-end gap-2 mb-2">
+                <Avatar profile={otherUser} size="sm" />
+                <div className="bg-zinc-800 rounded-2xl rounded-bl-md px-3 py-2.5 flex items-center gap-1">
                   <span className="typing-dot" />
                   <span className="typing-dot" />
                   <span className="typing-dot" />
@@ -236,29 +196,15 @@ export default function ChatWindow({
             )}
           </>
         )}
-        <div ref={bottomRef} className="h-1" />
+        <div ref={bottomRef} />
       </div>
-
-      {/* Scroll to bottom button */}
-      {showScrollBtn && (
-        <button
-          onClick={() => scrollToBottom()}
-          className="absolute bottom-24 right-4 z-20 w-9 h-9 rounded-full glass border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white shadow-lg transition-all hover:scale-110"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 5v14M5 12l7 7 7-7"/>
-          </svg>
-        </button>
-      )}
 
       {/* Input */}
-      <div className="relative z-10 flex-shrink-0">
-        <MessageInput
-          conversationId={conversationId}
-          currentUser={currentUser}
-          otherUserId={otherUser?.id ?? ""}
-        />
-      </div>
+      <MessageInput
+        conversationId={conversationId}
+        currentUser={currentUser}
+        otherUserId={otherUser?.id ?? ""}
+      />
     </div>
   );
 }
