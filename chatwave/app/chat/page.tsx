@@ -3,10 +3,11 @@ import { redirect, notFound } from "next/navigation";
 import ChatWindow from "@/components/chat/ChatWindow";
 
 interface Props {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function ConversationPage({ params }: Props) {
+  const { id } = await params;
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -15,7 +16,7 @@ export default async function ConversationPage({ params }: Props) {
   const { data: participant } = await supabase
     .from("conversation_participants")
     .select("conversation_id")
-    .eq("conversation_id", params.id)
+    .eq("conversation_id", id)
     .eq("user_id", user.id)
     .single();
 
@@ -24,7 +25,7 @@ export default async function ConversationPage({ params }: Props) {
   const { data: otherParticipant } = await supabase
     .from("conversation_participants")
     .select("user_id")
-    .eq("conversation_id", params.id)
+    .eq("conversation_id", id)
     .neq("user_id", user.id)
     .single();
 
@@ -37,7 +38,7 @@ export default async function ConversationPage({ params }: Props) {
   const { data: messages } = await supabase
     .from("messages")
     .select(`*, sender:profiles(*)`)
-    .eq("conversation_id", params.id)
+    .eq("conversation_id", id)
     .order("created_at", { ascending: true })
     .limit(50);
 
@@ -48,10 +49,9 @@ export default async function ConversationPage({ params }: Props) {
     .single();
 
   return (
-    // Full screen on mobile
     <div className="fixed inset-0 md:relative md:inset-auto flex flex-col bg-zinc-950 z-50">
       <ChatWindow
-        conversationId={params.id}
+        conversationId={id}
         otherUser={otherUser}
         initialMessages={messages ?? []}
         currentUser={currentUserProfile}
