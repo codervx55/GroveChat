@@ -5,7 +5,7 @@ import { sendMessage } from "@/lib/actions/chat";
 import { createClient } from "@/lib/supabase/client";
 import { useChatStore } from "@/lib/store";
 import EmojiPicker, { Theme } from "emoji-picker-react";
-import { Smile, Send, Paperclip, Mic } from "lucide-react";
+import { Smile, Send, Paperclip, Mic, X, Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 import type { Profile } from "@/types";
@@ -20,13 +20,15 @@ export default function MessageInput({ conversationId, currentUser, otherUserId 
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const emojiRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout>>();
   const supabase = createClient();
   const { setTyping, clearTyping } = useChatStore();
 
-  // Auto-resize textarea
   useEffect(() => {
     const el = inputRef.current;
     if (!el) return;
@@ -34,7 +36,6 @@ export default function MessageInput({ conversationId, currentUser, otherUserId 
     el.style.height = Math.min(el.scrollHeight, 120) + "px";
   }, [text]);
 
-  // Close emoji picker on outside click
   useEffect(() => {
     if (!showEmoji) return;
     const fn = (e: MouseEvent) => {
@@ -73,16 +74,69 @@ export default function MessageInput({ conversationId, currentUser, otherUserId 
     return () => { supabase.removeChannel(ch); };
   }, [conversationId, currentUser?.id]);
 
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5MB");
+      return;
+    }
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = () => setImagePreview(reader.result as string);
+    reader.readAsDataURL(file);
+  }
+
+  async function uploadImage(): Promise<string | null> {
+    if (!imageFile || !currentUser) return null;
+    const ext = imageFile.name.split(".").pop();
+    const path = `${currentUser.id}/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage
+      .from("chat-images")
+      .upload(path, imageFile, { upsert: false });
+    if (error) { toast.error("Failed to upload image"); return null; }
+    const { data: { publicUrl } } = supabase.storage.from("chat-images").getPublicUrl(path);
+    return publicUrl;
+  }
+
   async function handleSend() {
-    const t = text.trim();
-    if (!t || sending) return;
-    setSending(true);
-    setShowEmoji(false);
-    setText("");
-    clearTimeout(typingTimeout.current);
-    const res = await sendMessage(conversationId, t);
-    if (res.error) { toast.error(res.error); setText(t); }
-    setSending(false);
+    const trimmed = text.trim();
+    if (!trimmed && !imageFile) return;
+    if (sending || uploadingImage) return;
+
+    if (imageFile) {
+      setUploadingImage(true);
+      const imageUrl = await uploadImage();
+      setUploadingImage(false);
+      if (!imageUrl) return;
+
+      // Send image message
+      const { error } = await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        sender_id: currentUser?.id,
+        content: trimmed || "📷 Image",
+        image_url: imageUrl,
+      });
+
+      if (error) toast.error("Failed to send image");
+      setImageFile(null);
+      setImagePreview(null);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+
+    if (trimmed) {
+      setSending(true);
+      setText("");
+      clearTimeout(typingTimeout.current);
+      const result = await sendMessage(conversationId, trimmed);
+      if (result.error) { toast.error(result.error); setText(trimmed); }
+      setSending(false);
+    }
+
     inputRef.current?.focus();
   }
 
@@ -106,13 +160,13 @@ export default function MessageInput({ conversationId, currentUser, otherUserId 
     }
   }
 
-  const hasText = text.trim().length > 0;
+  const hasContent = text.trim().length > 0 || !!imageFile;
 
   return (
-    <div className="relative px-3 py-2 bg-zinc-900 border-t border-zinc-800">
+    <div className="bg-zinc-900 border-t border-zinc-800 px-3 py-2">
       {/* Emoji picker */}
       {showEmoji && (
-        <div className="emoji-wrap absolute bottom-full left-2 mb-2 z-50 rounded-xl overflow-hidden shadow-2xl">
+        <div className="emoji-wrap absolute bottom-20 left-2 z-50 rounded-xl overflow-hidden shadow-2xl">
           <EmojiPicker
             theme={Theme.DARK}
             onEmojiClick={pickEmoji}
@@ -123,8 +177,39 @@ export default function MessageInput({ conversationId, currentUser, otherUserId 
         </div>
       )}
 
+      {/* Image preview */}
+      {imagePreview && (
+        <div className="relative mb-2 inline-block">
+          <img
+            src={imagePreview}
+            alt="Preview"
+            className="h-20 w-auto rounded-xl object-cover border border-zinc-700"
+          />
+          <button
+            onClick={() => { setImageFile(null); setImagePreview(null); if (fileRef.current) fileRef.current.value = ""; }}
+            className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-zinc-700 border border-zinc-600 flex items-center justify-center"
+          >
+            <X className="w-3 h-3 text-white" />
+          </button>
+          {uploadingImage && (
+            <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center">
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex items-end gap-2">
-        {/* Emoji toggle */}
+        {/* Hidden file input */}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+
+        {/* Emoji */}
         <button
           type="button"
           onClick={() => setShowEmoji(v => !v)}
@@ -150,23 +235,24 @@ export default function MessageInput({ conversationId, currentUser, otherUserId 
           />
         </div>
 
-        {/* Attach */}
+        {/* Attach image */}
         <button
           type="button"
+          onClick={() => fileRef.current?.click()}
           className="flex-shrink-0 p-2 rounded-full text-zinc-500 hover:text-zinc-300 transition-colors mb-0.5"
         >
           <Paperclip className="w-5 h-5" />
         </button>
 
         {/* Send or Mic */}
-        {hasText ? (
+        {hasContent ? (
           <button
             type="button"
             onClick={handleSend}
-            disabled={sending}
+            disabled={sending || uploadingImage}
             className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-500 hover:bg-blue-400 flex items-center justify-center transition-all active:scale-95 shadow-lg shadow-blue-500/20 mb-0.5"
           >
-            {sending
+            {sending || uploadingImage
               ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               : <Send className="w-4 h-4 text-white" style={{ marginLeft: "1px" }} />
             }
