@@ -1,22 +1,24 @@
-// app/layout.tsx — Root layout
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "react-hot-toast";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const font = Plus_Jakarta_Sans({
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-main",
 });
 
 export const metadata: Metadata = {
   title: "GroveChat — Real-time Messaging",
   description: "A modern real-time chat application",
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
@@ -26,7 +28,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-zinc-950 text-zinc-100`}>
+      <body className={`${font.variable} antialiased bg-zinc-950 text-zinc-100`}
+        style={{ fontFamily: "var(--font-main), system-ui, sans-serif" }}>
         {children}
         <Toaster
           position="top-center"
@@ -37,6 +40,7 @@ export default function RootLayout({
               border: "1px solid #3f3f46",
               borderRadius: "12px",
               fontSize: "14px",
+              fontFamily: "var(--font-main)",
             },
           }}
         />
