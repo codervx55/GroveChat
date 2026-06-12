@@ -1,110 +1,97 @@
-import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
-import "./globals.css";
-import { Toaster } from "react-hot-toast";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import Sidebar from "@/components/chat/Sidebar";
+import MobileLayout from "@/components/chat/MobileLayout";
+import type { Message, Profile } from "@/types";
 
-const font = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-main",
-});
-
-const ICON =
-  "https://xmfllrzxkcqexehrveur.supabase.co/storage/v1/object/public/avatars/IMG_7212.png";
-
-export const metadata: Metadata = {
-  title: "GroveChat — Real-time Messaging",
-  description: "A modern real-time chat application",
-  icons: {
-    icon: ICON,
-    apple: ICON,
-  },
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "black-translucent",
-    title: "GroveChat",
-  },
-};
-
-export const viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
-  themeColor: "#09090b",
-};
-
-export default function RootLayout({
+export default async function ChatLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/auth/login");
+
+  // Round 1: profile + my conversation ids (parallel)
+  const [{ data: profile }, { data: participantRows }] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", user.id).single(),
+    supabase.from("conversation_participants").select("conversation_id").eq("user_id", user.id),
+  ]);
+
+  const conversationIds = participantRows?.map((r) => r.conversation_id) ?? [];
+  let conversations: any[] = [];
+
+  if (conversationIds.length > 0) {
+    // Round 2: everything for all conversations at once (parallel)
+    const [convsRes, otherPartsRes, recentMsgsRes, unreadRes] = await Promise.all([
+      supabase
+        .from("conversations")
+        .select("id, updated_at, created_at")
+        .in("id", conversationIds)
+        .order("updated_at", { ascending: false }),
+      supabase
+        .from("conversation_participants")
+        .select("conversation_id, user_id")
+        .in("conversation_id", conversationIds)
+        .neq("user_id", user.id),
+      supabase
+        .from("messages")
+        .select("*")
+        .in("conversation_id", conversationIds)
+        .order("created_at", { ascending: false })
+        .limit(300),
+      supabase
+        .from("messages")
+        .select("conversation_id")
+        .in("conversation_id", conversationIds)
+        .neq("sender_id", user.id)
+        .is("read_at", null),
+    ]);
+
+    // Round 3: all other users' profiles in one query
+    const otherIds = (otherPartsRes.data ?? []).map((p) => p.user_id);
+    const { data: otherProfiles } = otherIds.length
+      ? await supabase.from("profiles").select("*").in("id", otherIds)
+      : { data: [] as Profile[] };
+
+    const profileById = new Map<string, Profile>(
+      (otherProfiles ?? []).map((p: Profile) => [p.id, p])
+    );
+    const otherUserByConv = new Map<string, Profile | null>();
+    for (const p of otherPartsRes.data ?? []) {
+      otherUserByConv.set(p.conversation_id, profileById.get(p.user_id) ?? null);
+    }
+
+    const lastMsgByConv = new Map<string, Message>();
+    for (const m of (recentMsgsRes.data ?? []) as Message[]) {
+      if (!lastMsgByConv.has(m.conversation_id)) lastMsgByConv.set(m.conversation_id, m);
+    }
+
+    const unreadByConv = new Map<string, number>();
+    for (const r of unreadRes.data ?? []) {
+      unreadByConv.set(r.conversation_id, (unreadByConv.get(r.conversation_id) ?? 0) + 1);
+    }
+
+    conversations = (convsRes.data ?? []).map((conv) => ({
+      ...conv,
+      other_user: otherUserByConv.get(conv.id) ?? null,
+      last_message: lastMsgByConv.get(conv.id) ?? null,
+      unread_count: unreadByConv.get(conv.id) ?? 0,
+    }));
+  }
+
   return (
-    <html lang="en" className="dark">
-      <body
-        className={`${font.variable} antialiased bg-zinc-950 text-zinc-100`}
-        style={{ fontFamily: "var(--font-main), system-ui, sans-serif" }}
-      >
-        {/* Splash screen with logo, fades out once app is ready */}
-        <div id="gc-splash">
-          <img src={ICON} alt="GroveChat" />
-          <span>GroveChat</span>
-        </div>
-        <style
-          dangerouslySetInnerHTML={{
-            __html: `
-              #gc-splash {
-                position: fixed; inset: 0; z-index: 9999;
-                background: #09090b;
-                display: flex; flex-direction: column;
-                align-items: center; justify-content: center; gap: 14px;
-                animation: gc-splash-out 0.4s ease 1.4s forwards;
-                pointer-events: none;
-              }
-              #gc-splash img {
-                width: 88px; height: 88px; object-fit: contain;
-                animation: gc-splash-pop 0.5s ease;
-              }
-              #gc-splash span {
-                color: #fff; font-weight: 700; font-size: 20px;
-                letter-spacing: -0.02em;
-              }
-              @keyframes gc-splash-out {
-                to { opacity: 0; visibility: hidden; }
-              }
-              @keyframes gc-splash-pop {
-                from { transform: scale(0.8); opacity: 0; }
-                to { transform: scale(1); opacity: 1; }
-              }
-            `,
-          }}
+    <MobileLayout
+      sidebar={
+        <Sidebar
+          currentUser={profile}
+          conversations={conversations}
+          currentUserId={user.id}
         />
-        {children}
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            style: {
-              background: "#18181b",
-              color: "#f4f4f5",
-              border: "1px solid #3f3f46",
-              borderRadius: "12px",
-              fontSize: "14px",
-              fontFamily: "var(--font-main)",
-            },
-          }}
-        />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function () {
-                  navigator.serviceWorker.register('/sw.js');
-                });
-              }
-            `,
-          }}
-        />
-      </body>
-    </html>
+      }
+    >
+      {children}
+    </MobileLayout>
   );
 }
