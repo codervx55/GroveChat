@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Search, Settings, LogOut, User, X, Loader2 } from "lucide-react";
+import { Search, Settings, LogOut, User, X, Loader2, CircleDashed } from "lucide-react";
 import { cn, formatConversationTime, getInitials } from "@/lib/utils";
 import { signOut } from "@/lib/actions/auth";
 import { getOrCreateConversation } from "@/lib/actions/chat";
@@ -72,6 +72,12 @@ export default function Sidebar({ currentUser, conversations, currentUserId }: P
             <span className="font-bold text-white text-xl tracking-tight">GroveChat</span>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              href="/status"
+              className="w-9 h-9 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-teal-400 transition-colors"
+            >
+              <CircleDashed className="w-4 h-4" />
+            </Link>
             <Link
               href="/profile"
               className="w-9 h-9 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
