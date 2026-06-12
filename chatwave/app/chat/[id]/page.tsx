@@ -2,6 +2,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import ChatWindow from "@/components/chat/ChatWindow";
+import type { Profile } from "@/types";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -14,50 +15,43 @@ export default async function ConversationPage({ params }: Props) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
 
+  // One round trip: participants + messages in parallel
+  const [participantsRes, messagesRes] = await Promise.all([
+    supabase
+      .from("conversation_participants")
+      .select("user_id")
+      .eq("conversation_id", id),
+    supabase
+      .from("messages")
+      .select(`*, sender:profiles(*)`)
+      .eq("conversation_id", id)
+      .order("created_at", { ascending: true })
+      .limit(50),
+  ]);
+
+  const participantIds = (participantsRes.data ?? []).map((p) => p.user_id);
+
   // Verify user is a participant
-  const { data: participant } = await supabase
-    .from("conversation_participants")
-    .select("conversation_id")
-    .eq("conversation_id", id)
-    .eq("user_id", user.id)
-    .single();
+  if (!participantIds.includes(user.id)) notFound();
 
-  if (!participant) notFound();
+  const otherUserId = participantIds.find((pid) => pid !== user.id);
 
-  // Get the other participant's profile
-  const { data: otherParticipant } = await supabase
-    .from("conversation_participants")
-    .select("user_id")
-    .eq("conversation_id", id)
-    .neq("user_id", user.id)
-    .single();
-
-  const { data: otherUser } = await supabase
+  // One more round trip: both profiles in a single query
+  const { data: profiles } = await supabase
     .from("profiles")
     .select("*")
-    .eq("id", otherParticipant?.user_id ?? "")
-    .single();
+    .in("id", otherUserId ? [user.id, otherUserId] : [user.id]);
 
-  // Fetch initial messages (last 50)
-  const { data: messages } = await supabase
-    .from("messages")
-    .select(`*, sender:profiles(*)`)
-    .eq("conversation_id", id)
-    .order("created_at", { ascending: true })
-    .limit(50);
-
-  // Fetch current user profile
-  const { data: currentUserProfile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
+  const currentUserProfile =
+    (profiles ?? []).find((p: Profile) => p.id === user.id) ?? null;
+  const otherUser =
+    (profiles ?? []).find((p: Profile) => p.id === otherUserId) ?? null;
 
   return (
     <ChatWindow
       conversationId={id}
       otherUser={otherUser}
-      initialMessages={messages ?? []}
+      initialMessages={messagesRes.data ?? []}
       currentUser={currentUserProfile}
     />
   );
