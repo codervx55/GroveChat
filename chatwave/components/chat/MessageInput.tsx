@@ -5,7 +5,7 @@ import { sendMessage } from "@/lib/actions/chat";
 import { createClient } from "@/lib/supabase/client";
 import { useChatStore } from "@/lib/store";
 import EmojiPicker, { Theme } from "emoji-picker-react";
-import { Smile, Send, Paperclip, Mic, X } from "lucide-react";
+import { Smile, Send, Paperclip, Mic, X, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 import type { Profile } from "@/types";
@@ -23,6 +23,17 @@ export default function MessageInput({ conversationId, currentUser, otherUserId 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+
+  // ── Voice note state ──
+  const [recording, setRecording] = useState(false);
+  const [recordSecs, setRecordSecs] = useState(0);
+  const [uploadingAudio, setUploadingAudio] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const cancelledRef = useRef(false);
+  const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout>>();
@@ -116,6 +127,95 @@ export default function MessageInput({ conversationId, currentUser, otherUserId 
     return publicUrl;
   }
 
+  // ── Voice note recording ──
+  function pickMimeType(): { mime: string; ext: string } {
+    if (typeof MediaRecorder !== "undefined") {
+      if (MediaRecorder.isTypeSupported("audio/mp4")) return { mime: "audio/mp4", ext: "m4a" };
+      if (MediaRecorder.isTypeSupported("audio/webm")) return { mime: "audio/webm", ext: "webm" };
+    }
+    return { mime: "", ext: "webm" };
+  }
+
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const { mime } = pickMimeType();
+      const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      chunksRef.current = [];
+      cancelledRef.current = false;
+
+      rec.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      rec.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+        if (!cancelledRef.current) {
+          void uploadAndSendAudio();
+        }
+      };
+
+      rec.start();
+      recorderRef.current = rec;
+      setRecording(true);
+      setRecordSecs(0);
+      recordTimerRef.current = setInterval(() => {
+        setRecordSecs((s) => {
+          if (s >= 120) { stopRecording(false); return s; } // 2 min max
+          return s + 1;
+        });
+      }, 1000);
+    } catch {
+      toast.error("Microphone access denied. Allow it in browser settings.");
+    }
+  }
+
+  function stopRecording(cancel: boolean) {
+    cancelledRef.current = cancel;
+    if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+    setRecording(false);
+    if (recorderRef.current && recorderRef.current.state !== "inactive") {
+      recorderRef.current.stop();
+    }
+  }
+
+  async function uploadAndSendAudio() {
+    if (!currentUser) return;
+    const { mime, ext } = pickMimeType();
+    const blob = new Blob(chunksRef.current, { type: mime || "audio/webm" });
+    if (blob.size < 1000) { toast.error("Recording too short"); return; }
+
+    setUploadingAudio(true);
+    try {
+      const path = `public/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage
+        .from("voice-notes")
+        .upload(path, blob, { contentType: mime || "audio/webm" });
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("voice-notes")
+        .getPublicUrl(path);
+
+      const { error: msgErr } = await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        sender_id: currentUser.id,
+        content: "🎤 Voice note",
+        audio_url: publicUrl,
+      });
+      if (msgErr) throw msgErr;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send voice note");
+    } finally {
+      setUploadingAudio(false);
+    }
+  }
+
+  function formatSecs(s: number): string {
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  }
+
   async function handleSend() {
     const trimmed = text.trim();
     if (!trimmed && !imageFile) return;
@@ -173,6 +273,46 @@ export default function MessageInput({ conversationId, currentUser, otherUserId 
   }
 
   const hasContent = text.trim().length > 0 || !!imageFile;
+
+  // ── Recording UI ──
+  if (recording || uploadingAudio) {
+    return (
+      <div className="bg-zinc-900 border-t border-zinc-800 px-3 py-3">
+        <div className="flex items-center gap-3">
+          {recording ? (
+            <>
+              <button
+                type="button"
+                onClick={() => stopRecording(true)}
+                className="flex-shrink-0 p-2 rounded-full text-zinc-400 hover:text-red-400 transition-colors"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+              <div className="flex-1 flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-sm text-zinc-300 font-medium tabular-nums">
+                  {formatSecs(recordSecs)}
+                </span>
+                <span className="text-xs text-zinc-500">Recording...</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => stopRecording(false)}
+                className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-500 hover:bg-blue-400 flex items-center justify-center transition-all active:scale-95 shadow-lg shadow-blue-500/20"
+              >
+                <Send className="w-4 h-4 text-white" style={{ marginLeft: "1px" }} />
+              </button>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center gap-2 justify-center py-1">
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span className="text-sm text-zinc-400">Sending voice note...</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-zinc-900 border-t border-zinc-800 px-3 py-2">
@@ -265,7 +405,8 @@ export default function MessageInput({ conversationId, currentUser, otherUserId 
         ) : (
           <button
             type="button"
-            className="flex-shrink-0 p-2 rounded-full text-zinc-500 hover:text-zinc-300 transition-colors mb-0.5"
+            onClick={startRecording}
+            className="flex-shrink-0 p-2 rounded-full text-zinc-500 hover:text-blue-400 transition-colors mb-0.5"
           >
             <Mic className="w-5 h-5" />
           </button>
