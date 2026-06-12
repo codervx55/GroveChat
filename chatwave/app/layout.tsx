@@ -9,12 +9,20 @@ const font = Plus_Jakarta_Sans({
   variable: "--font-main",
 });
 
+const ICON =
+  "https://xmfllrzxkcqexehrveur.supabase.co/storage/v1/object/public/avatars/IMG_7212.png";
+
 export const metadata: Metadata = {
   title: "GroveChat — Real-time Messaging",
   description: "A modern real-time chat application",
   icons: {
-    icon: "https://xmfllrzxkcqexehrveur.supabase.co/storage/v1/object/public/avatars/IMG_7212.png",
-    apple: "https://xmfllrzxkcqexehrveur.supabase.co/storage/v1/object/public/avatars/IMG_7212.png",
+    icon: ICON,
+    apple: ICON,
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "GroveChat",
   },
 };
 
@@ -23,6 +31,7 @@ export const viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  themeColor: "#09090b",
 };
 
 export default function RootLayout({
@@ -48,6 +57,17 @@ export default function RootLayout({
               fontSize: "14px",
               fontFamily: "var(--font-main)",
             },
+          }}
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function () {
+                  navigator.serviceWorker.register('/sw.js');
+                });
+              }
+            `,
           }}
         />
       </body>
