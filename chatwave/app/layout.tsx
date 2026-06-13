@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Toaster } from "react-hot-toast";
 import "./globals.css";
 
+const LOGO =
+  "https://xmfllrzxkcqexehrveur.supabase.co/storage/v1/object/public/avatars/IMG_7212.png";
+
 export const metadata: Metadata = {
   title: "GroveChat",
   description: "Real-time chat, simple and fast.",
@@ -20,40 +23,39 @@ export const viewport: Viewport = {
   themeColor: "#09090b",
 };
 
-const LOGO =
-  "https://xmfllrzxkcqexehrveur.supabase.co/storage/v1/object/public/avatars/IMG_7212.png";
-
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" style={{ background: "#09090b" }}>
       <head>
         <link rel="apple-touch-icon" href={LOGO} />
+        <link rel="preload" as="image" href={LOGO} />
         <style
           dangerouslySetInnerHTML={{
             __html: `
+              html, body { background: #09090b !important; }
               #grove-splash {
                 position: fixed;
                 inset: 0;
-                z-index: 9999;
+                z-index: 99999;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 background: #09090b;
-                transition: opacity 0.5s ease;
+                transition: opacity 0.45s ease;
               }
               #grove-splash img {
-                width: 96px;
-                height: 96px;
-                border-radius: 22px;
-                animation: grovePulse 1.4s ease-in-out infinite;
+                width: 104px;
+                height: 104px;
+                border-radius: 24px;
+                animation: grovePulse 1.3s ease-in-out infinite;
               }
               @keyframes grovePulse {
                 0%, 100% { transform: scale(1); opacity: 1; }
-                50% { transform: scale(0.92); opacity: 0.7; }
+                50% { transform: scale(0.9); opacity: 0.65; }
               }
               #grove-splash.grove-hide {
                 opacity: 0;
@@ -65,20 +67,24 @@ export default function RootLayout({
       </head>
       <body className="bg-zinc-950 text-zinc-100 antialiased">
         <div id="grove-splash">
-          <img src={LOGO} alt="GroveChat" />
+          <img src={LOGO} alt="GroveChat" fetchPriority="high" />
         </div>
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              window.addEventListener('load', function () {
-                setTimeout(function () {
+              (function () {
+                function hide() {
                   var s = document.getElementById('grove-splash');
-                  if (s) {
-                    s.classList.add('grove-hide');
-                    setTimeout(function () { s.remove(); }, 600);
-                  }
-                }, 400);
-              });
+                  if (!s) return;
+                  s.classList.add('grove-hide');
+                  setTimeout(function () { if (s) s.remove(); }, 500);
+                }
+                if (document.readyState === 'complete') {
+                  setTimeout(hide, 300);
+                } else {
+                  window.addEventListener('load', function () { setTimeout(hide, 300); });
+                }
+              })();
             `,
           }}
         />
