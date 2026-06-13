@@ -24,26 +24,15 @@ export default function SignupForm() {
   return (
     <div className="space-y-4">
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm text-zinc-400 mb-1.5">Full Name</label>
-            <input
-              name="full_name"
-              type="text"
-              placeholder="John Doe"
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-colors"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-zinc-400 mb-1.5">Username</label>
-            <input
-              name="username"
-              type="text"
-              required
-              placeholder="john_doe"
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-colors"
-            />
-          </div>
+        <div>
+          <label className="block text-sm text-zinc-400 mb-1.5">Username</label>
+          <input
+            name="username"
+            type="text"
+            required
+            placeholder="john_doe"
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-colors"
+          />
         </div>
         <div>
           <label className="block text-sm text-zinc-400 mb-1.5">Email</label>
@@ -52,18 +41,6 @@ export default function SignupForm() {
             type="email"
             required
             placeholder="you@example.com"
-            className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-colors"
-          />
-        </div>
-        <div>
-          <label className="block text-sm text-zinc-400 mb-1.5">Phone Number</label>
-          <input
-            name="phone"
-            type="tel"
-            required
-            inputMode="tel"
-            autoComplete="tel"
-            placeholder="+234 801 234 5678"
             className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-colors"
           />
         </div>
