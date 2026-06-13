@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Sidebar from "@/components/chat/Sidebar";
 import MobileLayout from "@/components/chat/MobileLayout";
+import NotificationListener from "@/components/chat/NotificationListener";
 import type { Message, Profile } from "@/types";
 
 export default async function ChatLayout({
@@ -91,6 +92,10 @@ export default async function ChatLayout({
         />
       }
     >
+      <NotificationListener
+        currentUserId={user.id}
+        conversationIds={conversationIds}
+      />
       {children}
     </MobileLayout>
   );
