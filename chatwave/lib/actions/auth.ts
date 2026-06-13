@@ -5,19 +5,15 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
-/** Sign up with email + password + phone, then create profile row */
+/** Sign up with email + password + username, then create profile row */
 export async function signUp(formData: FormData) {
   const supabase = await createClient();
 
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const username = formData.get("username") as string;
-  const full_name = formData.get("full_name") as string;
-  const phoneRaw = formData.get("phone") as string;
-  const phone = phoneRaw?.trim();
 
-  // Basic validation
-  if (!email || !password || !username || !phone) {
+  if (!email || !password || !username) {
     return { error: "All fields are required." };
   }
   if (password.length < 6) {
@@ -26,17 +22,12 @@ export async function signUp(formData: FormData) {
   if (username.length < 3 || !/^[a-z0-9_]+$/.test(username)) {
     return { error: "Username must be 3+ chars: lowercase letters, numbers, underscores only." };
   }
-  // Phone: digits, optional leading +, 7–15 digits (E.164-ish)
-  const phoneClean = phone.replace(/[\s()-]/g, "");
-  if (!/^\+?\d{7,15}$/.test(phoneClean)) {
-    return { error: "Enter a valid phone number (e.g. +2348012345678)." };
-  }
 
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      data: { username, full_name, phone: phoneClean },
+      data: { username },
     },
   });
 
