@@ -1,8 +1,8 @@
 // app/manifest.ts — Next.js auto-generates /manifest.webmanifest from this
 import type { MetadataRoute } from "next";
 
-const ICON =
-  "https://xmfllrzxkcqexehrveur.supabase.co/storage/v1/object/public/avatars/IMG_7212.png";
+const BASE =
+  "https://xmfllrzxkcqexehrveur.supabase.co/storage/v1/object/public/avatars";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -15,10 +15,9 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#09090b",
     orientation: "portrait",
     icons: [
-      { src: ICON, sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: ICON, sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: ICON, sizes: "192x192", type: "image/png", purpose: "maskable" },
-      { src: ICON, sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: `${BASE}/IMG_7505.png`, sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: `${BASE}/IMG_7506.png`, sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: `${BASE}/IMG_7507.png`, sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 }
