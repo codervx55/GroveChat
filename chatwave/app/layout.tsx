@@ -6,6 +6,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "GroveChat",
   description: "Real-time chat, simple and fast.",
+  manifest: "/manifest.webmanifest",
 };
 
 export const viewport: Viewport = {
