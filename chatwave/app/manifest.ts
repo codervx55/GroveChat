@@ -1,9 +1,6 @@
 // app/manifest.ts — Next.js auto-generates /manifest.webmanifest from this
 import type { MetadataRoute } from "next";
 
-const BASE =
-  "https://xmfllrzxkcqexehrveur.supabase.co/storage/v1/object/public/avatars";
-
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "GroveChat",
@@ -15,9 +12,9 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#09090b",
     orientation: "portrait",
     icons: [
-      { src: `${BASE}/IMG_7506.png`, sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: `${BASE}/IMG_7505.png`, sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: `${BASE}/IMG_7507.png`, sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/IMG_7506.png", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/IMG_7505.png", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/IMG_7507.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 }
